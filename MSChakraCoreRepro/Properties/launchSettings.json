@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "MSChakraCoreRepro": {
+      "commandName": "Project",
+      "commandLineArgs": "C:\\Users\\owner\\source\\repos\\MSChakraCoreRepro\\MSChakraCoreRepro\\app.js"
+    }
+  }
+}
