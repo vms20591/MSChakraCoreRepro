@@ -218,7 +218,17 @@
         public static JavaScriptValue RunScript(string script, JavaScriptSourceContext sourceContext, string sourceName)
         {
             JavaScriptValue result;
-            Native.ThrowIfError(Native.JsRunScript(script, sourceContext, sourceName, out result));
+
+            if(Environment.OSVersion.Platform == PlatformID.Unix)
+            {
+                Console.WriteLine("Running on Linux");
+                Native.ThrowIfError(Native.JsRun(script, sourceContext, sourceName, out result));
+            }
+            else
+            {
+                Native.ThrowIfError(Native.JsRunScript(script, sourceContext, sourceName, out result));
+            }
+            
             return result;
         }
 

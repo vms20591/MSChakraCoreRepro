@@ -177,6 +177,9 @@
         internal static extern JavaScriptErrorCode JsRunScript(string script, JavaScriptSourceContext sourceContext, string sourceUrl, out JavaScriptValue result);
 
         [DllImport(DllName, CharSet = CharSet.Unicode)]
+        internal static extern JavaScriptErrorCode JsRun(string script, JavaScriptSourceContext sourceContext, string sourceUrl, out JavaScriptValue result);
+
+        [DllImport(DllName, CharSet = CharSet.Unicode)]
         internal static extern JavaScriptErrorCode JsSerializeScript(string script, byte[] buffer, ref ulong bufferSize);
 
         [DllImport(DllName, CharSet = CharSet.Unicode)]

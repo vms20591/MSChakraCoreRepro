@@ -347,6 +347,7 @@ namespace MSChakraCoreRepro
             int returnValue = 1;
             CommandLineArguments commandLineArguments;
             commandLineArguments.ArgumentsStart = 0;
+            var tasks = new List<Task>();
 
             if (arguments.Length - commandLineArguments.ArgumentsStart < 1)
             {
@@ -360,77 +361,87 @@ namespace MSChakraCoreRepro
                 // Create the runtime. We're only going to use one runtime for this host.
                 //
 
-                using (JavaScriptRuntime runtime = JavaScriptRuntime.Create())
+                for (int i = 0; i < 10; i++)
                 {
-                    //
-                    // Similarly, create a single execution context. Note that we're putting it on the stack here,
-                    // so it will stay alive through the entire run.
-                    //
-
-                    JavaScriptContext context = CreateHostContext(runtime, arguments, commandLineArguments.ArgumentsStart);
-
-                    //
-                    // Now set the execution context as being the current one on this thread.
-                    //
-
-                    using (new JavaScriptContext.Scope(context))
+                    var task = Task.Run(() =>
                     {
-                        JavaScriptRuntime.SetPromiseContinuationCallback(PromiseContinuationCallback, IntPtr.Zero);
-
-                        //
-                        // Load the script from the disk.
-                        //
-
-                        string script = File.ReadAllText(arguments[commandLineArguments.ArgumentsStart]);
-
-                        //
-                        // Run the script.
-                        //
-
-                        JavaScriptValue result;
-                        try
+                        using (JavaScriptRuntime runtime = JavaScriptRuntime.Create())
                         {
-                            result = JavaScriptContext.RunScript(script, currentSourceContext++, arguments[commandLineArguments.ArgumentsStart]);
+                            //
+                            // Similarly, create a single execution context. Note that we're putting it on the stack here,
+                            // so it will stay alive through the entire run.
+                            //
 
-                            // Call JS functions and continue the returned promises.
-                            /*JavaScriptPropertyId hostId = JavaScriptPropertyId.FromString("host");
-                            JavaScriptValue hostObject = JavaScriptValue.GlobalObject.GetProperty(hostId);
+                            JavaScriptContext context = CreateHostContext(runtime, arguments, commandLineArguments.ArgumentsStart);
 
-                            JavaScriptPropertyId doSuccessfulJsWorkId = JavaScriptPropertyId.FromString("doSuccessfulJsWork");
-                            JavaScriptValue doSuccessfulJsWorkFunction = hostObject.GetProperty(doSuccessfulJsWorkId);
-                            JavaScriptValue resolvedPromise = doSuccessfulJsWorkFunction.CallFunction(JavaScriptValue.GlobalObject);
+                            //
+                            // Now set the execution context as being the current one on this thread.
+                            //
 
-                            ContinuePromise(resolvedPromise);
+                            using (new JavaScriptContext.Scope(context))
+                            {
+                                JavaScriptRuntime.SetPromiseContinuationCallback(PromiseContinuationCallback, IntPtr.Zero);
 
-                            JavaScriptPropertyId doUnsuccessfulJsWorkId = JavaScriptPropertyId.FromString("doUnsuccessfulJsWork");
-                            JavaScriptValue doUnsuccessfulJsWorkFunction = hostObject.GetProperty(doUnsuccessfulJsWorkId);
-                            JavaScriptValue rejectedPromise = doUnsuccessfulJsWorkFunction.CallFunction(JavaScriptValue.GlobalObject);
+                                //
+                                // Load the script from the disk.
+                                //
 
-                            ContinuePromise(rejectedPromise);*/
+                                string script = File.ReadAllText(arguments[commandLineArguments.ArgumentsStart]);
 
-                            // Pump messages in the task queue.
-                            PumpMessages();
+                                //
+                                // Run the script.
+                                //
+
+                                JavaScriptValue result;
+                                try
+                                {
+                                    result = JavaScriptContext.RunScript(script, currentSourceContext++, arguments[commandLineArguments.ArgumentsStart]);
+
+                                    // Call JS functions and continue the returned promises.
+                                    /*JavaScriptPropertyId hostId = JavaScriptPropertyId.FromString("host");
+                                    JavaScriptValue hostObject = JavaScriptValue.GlobalObject.GetProperty(hostId);
+
+                                    JavaScriptPropertyId doSuccessfulJsWorkId = JavaScriptPropertyId.FromString("doSuccessfulJsWork");
+                                    JavaScriptValue doSuccessfulJsWorkFunction = hostObject.GetProperty(doSuccessfulJsWorkId);
+                                    JavaScriptValue resolvedPromise = doSuccessfulJsWorkFunction.CallFunction(JavaScriptValue.GlobalObject);
+
+                                    ContinuePromise(resolvedPromise);
+
+                                    JavaScriptPropertyId doUnsuccessfulJsWorkId = JavaScriptPropertyId.FromString("doUnsuccessfulJsWork");
+                                    JavaScriptValue doUnsuccessfulJsWorkFunction = hostObject.GetProperty(doUnsuccessfulJsWorkId);
+                                    JavaScriptValue rejectedPromise = doUnsuccessfulJsWorkFunction.CallFunction(JavaScriptValue.GlobalObject);
+
+                                    ContinuePromise(rejectedPromise);*/
+
+                                    // Pump messages in the task queue.
+                                    PumpMessages();
+                                }
+                                catch (JavaScriptScriptException e)
+                                {
+                                    PrintScriptException(e.Error);
+                                    return;
+                                }
+                                catch (Exception e)
+                                {
+                                    Console.Error.WriteLine("chakrahost: failed to run script: {0}", e.Message);
+                                    return;
+                                }
+
+                                //
+                                // Convert the return value.
+                                //
+
+                                JavaScriptValue numberResult = result.ConvertToNumber();
+                                double doubleResult = numberResult.ToDouble();
+                                returnValue = (int)doubleResult;
+                            }
                         }
-                        catch (JavaScriptScriptException e)
-                        {
-                            PrintScriptException(e.Error);
-                            return 1;
-                        }
-                        catch (Exception e)
-                        {
-                            Console.Error.WriteLine("chakrahost: failed to run script: {0}", e.Message);
-                            return 1;
-                        }
+                    });
 
-                        //
-                        // Convert the return value.
-                        //
-
-                        JavaScriptValue numberResult = result.ConvertToNumber();
-                        double doubleResult = numberResult.ToDouble();
-                        returnValue = (int)doubleResult;
-                    }
+                    tasks.Add(task);
                 }
+
+                Task.WaitAll(tasks.ToArray());
             }
             catch (Exception e)
             {
